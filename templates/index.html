@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSO Animation</title>
+    <link rel="stylesheet" href="static/styles.css">
+       
+</head>
+<body>
+    <h1>Particle Swarm Optimization (PSO) Animation</h1>
+    <p>Use the following fields to customize the Particle Swarm Optimization (PSO) process. Adjust the parameters to see how they impact the optimization!</p>
+
+    <form id="pso-form" method="POST" enctype="multipart/form-data">
+        <label for="input_type">Choose Input Type:</label>
+        <select id="input_type" name="input_type">
+            <option value="form">Form Input</option>
+            <option value="file">File Upload</option>
+        </select>
+
+        <div id="form-input">
+            <label for="objective_function">Objective Function:</label>
+            <select id="objective_function" name="objective_function_choice">
+                <option value="quadratic">Quadratic Function</option>
+                <option value="sine">Sine Function</option>
+                <option value="exponential_decay">Exponential Decay</option>
+                <option value="logarithmic">Logarithmic Function</option>
+                <option value="rastrigin">Rastrigin Function</option>
+                <option value="ackley">Ackley Function</option>
+                <option value="custom">Custom Function</option>
+            </select>
+            <p>Select the type of objective function for optimization.</p>
+        
+            <div id="custom_function_input" style="display:none;">
+                <label for="math_expr">Custom Function (in math format):</label>
+                <input type="text" id="math_expr" name="math_expr" placeholder="Enter custom function">
+                <p>Enter a custom mathematical expression for the objective function, using Math(python) syntax.</p>
+            </div>
+        
+            <label for="inertia">Inertia:</label>
+            <input type="text" id="inertia" name="inertia" value="0.6">
+            <p>Controls the influence of the previous velocity in particle motion (typically between 0 and 1).</p>
+        
+            <label for="cognitive">Cognitive:</label>
+            <input type="text" id="cognitive" name="cognitive" value="0.5">
+            <p>Defines the particle’s tendency to move towards its own best-known position.</p>
+        
+            <label for="social">Social:</label>
+            <input type="text" id="social" name="social" value="2">
+            <p>Controls the influence of the global best-known position in particle movement.</p>
+        
+            <label for="bounds">Bounds (comma-separated):</label>
+            <input type="text" id="bounds" name="bounds" value="-5.0,5.0">
+            <p>Set the search space boundaries for the particles in the optimization process (e.g.-5.0;5.0).</p>
+        
+            <label for="num_particles">Number of Particles:</label>
+            <input type="number" id="num_particles" name="num_particles" value="30">
+            <p>The number of particles to be used in the optimization algorithm.</p>
+        
+            <label for="max_iterations">Max Iterations:</label>
+            <input type="number" id="max_iterations" name="max_iterations" value="100">
+            <p>The maximum number of iterations the algorithm will run to find the optimal solution.</p>
+        
+            <label for="is_maximization">Maximization:</label>
+            <input type="checkbox" id="is_maximization" name="is_maximization">
+            <p>Check this option if the objective is to maximize the function; otherwise, it minimizes.</p>
+        </div>
+        
+
+        <div id="file-input" style="display:none;">
+            <label for="param_file">Upload Parameter File:</label>
+            <input type="file" name="param_file" id="param_file" />
+            <p>Or download a sample parameter file: <a href="static/pso_parameters_example.txt" download>Download Example File</a></p>
+            <p>Please keep the formating as in the sample file, espacialy the function line.</p>
+        </div>
+
+        <button type="submit">Run PSO</button>
+    </form>
+
+    <div class="result" id="result">
+        <h2>3D Surface Plot:</h2>
+        <img id="matplot_3d_img" src="" alt="3D Surface Plot">
+        
+        <h2>2D Animation:</h2>
+        <img id="matplot_animated_gif" src="" alt="2D PSO Animation">
+
+        <div class="download-link" id="download-link"></div>
+    </div>
+
+    <!-- Modal for Success/Error Message -->
+    <div id="errorModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <p id="modal-message">Error message goes here</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('input_type').addEventListener('change', function() {
+            const formInput = document.getElementById('form-input');
+            const fileInput = document.getElementById('file-input');
+            formInput.style.display = this.value === 'file' ? 'none' : 'block';
+            fileInput.style.display = this.value === 'file' ? 'block' : 'none';
+        });
+
+        // Show or hide the custom function input
+        document.getElementById('objective_function').addEventListener('change', function() {
+            document.getElementById('custom_function_input').style.display = this.value === 'custom' ? 'block' : 'none';
+        });
+
+        
+            // Client-side validation for the PSO form
+            document.getElementById('pso-form').addEventListener('submit', async function(event) {
+                event.preventDefault(); // Prevent default submission
+                const formData = new FormData(this);
+                
+                // Clear previous error highlights
+                document.querySelectorAll('.error').forEach(el => el.classList.remove('error'));
+                
+                try {
+                    // Validate inputs
+                    validateFormInputs(formData);
+                    
+                    const response = await fetch('/run_pso', { method: 'POST', body: formData });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.matplot_3d_img && data.matplot_animated_gif) {
+                        document.getElementById("matplot_3d_img").src = "data:image/png;base64," + data.matplot_3d_img;
+                        document.getElementById("matplot_animated_gif").src = "data:image/gif;base64," + data.matplot_animated_gif;
+                        document.getElementById("download-link").innerHTML = `<a href="/download_best_particle_file?file=${data.text_file_url}" download="best_particle_positions.txt">Download Best Particle Positions</a>`;
+                        showModal("PSO computation complete. Results are displayed below.");
+                    }
+                } catch (error) {
+                    showModal(error.message || "An error occurred while processing your request.");
+                }
+            });
+        
+            // Form validation logic
+            function validateFormInputs(formData) {
+                const errors = [];
+        
+                // Validate "inertia" field (should be a number between 0 and 1)
+                const inertia = formData.get("inertia");
+                if (!isNumber(inertia) || inertia < 0 || inertia > 1) {
+                    errors.push("Inertia must be a number between 0 and 1.");
+                    document.getElementById("inertia").classList.add('error');
+                }
+        
+                // Validate "cognitive" field (should be a positive number)
+                const cognitive = formData.get("cognitive");
+                if (!isNumber(cognitive) || cognitive <= 0) {
+                    errors.push("Cognitive must be a positive number.");
+                    document.getElementById("cognitive").classList.add('error');
+                }
+        
+                // Validate "social" field (should be a positive number)
+                const social = formData.get("social");
+                if (!isNumber(social) || social <= 0) {
+                    errors.push("Social must be a positive number.");
+                    document.getElementById("social").classList.add('error');
+                }
+        
+                // Validate "bounds" field (should be two comma-separated numbers)
+                const bounds = formData.get("bounds");
+                if (!/^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(bounds)) {
+                    errors.push("Bounds must be two comma-separated numbers (e.g., -5.0,5.0).");
+                    document.getElementById("bounds").classList.add('error');
+                }
+        
+                // Validate "num_particles" and "max_iterations" (should be integers > 0)
+                ["num_particles", "max_iterations"].forEach(id => {
+                    const value = formData.get(id);
+                    if (!isPositiveInteger(value)) {
+                        errors.push(`${id.replace('_', ' ')} must be a positive integer.`);
+                        document.getElementById(id).classList.add('error');
+                    }
+                });
+        
+                if (errors.length > 0) {
+                    throw new Error(errors.join("\n"));
+                }
+            }
+        
+            // Helper functions for input validation
+            function isNumber(value) {
+                return !isNaN(value) && value.trim() !== '';
+            }
+        
+            function isPositiveInteger(value) {
+                return /^\d+$/.test(value) && parseInt(value) > 0;
+            }
+        
+            // Modal for error/success
+            function showModal(message) {
+                document.getElementById("modal-message").textContent = message;
+                document.getElementById("errorModal").style.display = "block";
+            }
+            document.getElementById("closeModal").onclick = function() {
+                document.getElementById("errorModal").style.display = "none";
+            };
+    
+            window.onclick = function(event) {
+                if (event.target == document.getElementById("errorModal")) {
+                    document.getElementById("errorModal").style.display = "none";
+                }
+            };
+        
+    </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+Flask
+numpy
+matplotlib
+os
+tempfile
+base64
+io
+math
